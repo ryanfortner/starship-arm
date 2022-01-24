@@ -1,0 +1,85 @@
+name: package
+
+on:
+  schedule:
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        
+      - name: Setup node
+        uses: actions/setup-node@v2
+        with:
+         node-version: '14'
+      
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y libarchive-tools aria2
+          
+      - name: Remove old debs
+        run: |
+          rm -rf starship*.deb
+          
+      - name: Build armhf
+        run: |
+          rm -rf ./starship*/
+          export version=$(curl -s https://api.github.com/repos/starship/starship/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' | tr -d 'v')
+          export current=$(cat current.txt)
+          [ "$current" == "$version" ] && exit 0
+          mkdir starship-armhf && cd starship-armhf
+          curl -s https://api.github.com/repos/starship/starship/releases/latest | grep browser_download_url | grep 'starship-arm-unknown-linux-musleabihf.tar.gz"' | cut -d '"' -f 4 | xargs -n 1 curl -L -o binary.tar.gz
+          tar -xvf binary.tar.gz && rm binary.tar.gz
+          mkdir -p DEBIAN && mkdir -p usr/bin
+          mv starship usr/bin/
+          wget https://raw.githubusercontent.com/ryanfortner/starship-arm/master/controltemplate -O DEBIAN/control
+          sed -i "s/VTR/$version/" DEBIAN/control
+          sed -i "s/ATR/armhf/" DEBIAN/control
+          chmod 755 DEBIAN/*
+          cd ../
+          dpkg-deb --build starship-armhf/ starship_${version}_armhf.deb
+
+      - name: Build arm64
+        run: |
+          rm -rf ./starship*/
+          export version=$(curl -s https://api.github.com/repos/starship/starship/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' | tr -d 'v')
+          export current=$(cat current.txt)
+          [ "$current" == "$version" ] && exit 0
+          mkdir starship-arm64 && cd starship-arm64
+          curl -s https://api.github.com/repos/starship/starship/releases/latest | grep browser_download_url | grep 'starship-aarch64-unknown-linux-musl.tar.gz"' | cut -d '"' -f 4 | xargs -n 1 curl -L -o binary.tar.gz
+          tar -xvf binary.tar.gz && rm binary.tar.gz
+          mkdir -p DEBIAN && mkdir -p usr/bin
+          mv starship usr/bin/
+          wget https://raw.githubusercontent.com/ryanfortner/starship-arm/master/controltemplate -O DEBIAN/control
+          sed -i "s/VTR/$version/" DEBIAN/control
+          sed -i "s/ATR/arm64/" DEBIAN/control
+          chmod 755 DEBIAN/*
+          cd ../
+          dpkg-deb --build starship-arm64/ starship_${version}_arm64.deb
+
+      - name: Create symlinks
+        run: |
+          export version=$(curl -s https://api.github.com/repos/starship/starship/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' | tr -d 'v')
+          export current=$(cat current.txt)
+          [ "$current" == "$version" ] && exit 0
+          rm -rf ./*latest.deb
+          ln -fs "$(find . -name '*arm64.deb' -type f -printf '%P\n' -quit)" starship-arm64-latest.deb
+          ln -fs "$(find . -name '*armhf.deb' -type f -printf '%P\n' -quit)" starship-armhf-latest.deb
+          
+      - name: Upload
+        run: |
+          rm -rf ./starship*/
+          export version=$(curl -s https://api.github.com/repos/starship/starship/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' | tr -d 'v')
+          export current=$(cat current.txt)
+          [ "$current" == "$version" ] && exit 0
+          echo $version > current.txt
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+          git add .
+          git commit -m "Upload starship v$(curl -s https://api.github.com/repos/starship/starship/releases/latest | grep -oP '"tag_name": "\K(.*)(?=")' | tr -d 'v')" 
+          git push
