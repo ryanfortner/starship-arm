@@ -1,0 +1,10 @@
+Package: starship
+Version: VTR
+Section: utils
+Priority: optional
+Architecture: ATR
+Depends: bash
+Maintainer: Ryan Fortner <ryankfortner@gmail.com>
+Description: The minimal, blazing-fast, and infinitely customizable prompt for any shell!
+Homepage: https://github.com/starship/starship
+Bugs: https://github.com/starship/starship/issues
